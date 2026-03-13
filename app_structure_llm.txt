@@ -1,0 +1,58 @@
+# App Structure - x-cli
+# Last updated: 2026-03-13
+
+## Overview
+Go CLI tool that wraps X's internal GraphQL API for fetching timelines, tweets, users, search results, and social graphs.
+
+## Project Layout
+x-cli/
+├── main.go                         # Entry point → cmd.Execute()
+├── cmd/                            # Cobra command definitions
+│   ├── root.go                     # Root command, --json flag
+│   ├── auth.go                     # auth login/status/logout
+│   ├── timeline.go                 # timeline home / timeline user <handle>
+│   ├── tweet.go                    # tweet get <id_or_url>
+│   ├── search.go                   # search <query>
+│   ├── user.go                     # user get <handle>
+│   └── followers.go                # followers/following <handle>
+├── internal/
+│   ├── api/                        # GraphQL API client layer
+│   │   ├── client.go               # HTTP client, header injection, request builder
+│   │   ├── endpoints.go            # Endpoint registry (operation names → query IDs)
+│   │   ├── features.go             # Feature flag map (~36 boolean flags X requires)
+│   │   ├── ratelimit.go            # Rate limit header parsing + wait logic
+│   │   ├── timeline.go             # HomeTimeline, UserTweets API methods
+│   │   ├── tweet.go                # TweetDetail API method
+│   │   ├── user.go                 # UserByScreenName + ResolveUserID
+│   │   ├── search.go               # SearchTimeline API method
+│   │   └── social.go               # Followers/Following API methods
+│   ├── auth/                       # Authentication subsystem
+│   │   ├── browser.go              # chromedp browser login flow
+│   │   └── store.go                # ~/.x-cli/credentials.json persistence
+│   ├── models/                     # Domain types + parsing (gjson)
+│   │   ├── tweet.go                # Tweet, Media, ParseTweet
+│   │   ├── user.go                 # User, UserSummary, ParseUser
+│   │   └── timeline.go             # TimelinePage, ParseTimeline
+│   └── output/                     # Output formatting
+│       ├── printer.go              # Format dispatcher (pretty vs JSON)
+│       └── pretty.go               # Colored terminal output
+
+## Auth
+- Credentials stored at: ~/.x-cli/credentials.json
+- Uses chromedp to open a real browser for X login
+- Captures cookies, bearer token, CSRF token (ct0)
+- Bearer token is the well-known web app token (hardcoded)
+
+## Key Dependencies
+- github.com/spf13/cobra         — CLI framework
+- github.com/chromedp/chromedp    — Browser automation for auth
+- github.com/fatih/color          — Terminal coloring
+- github.com/tidwall/gjson        — Fast JSON path navigation
+
+## API Notes
+- Query IDs in endpoints.go rotate when X deploys — need manual updates
+- Feature flags in features.go may drift over time
+- Prism bundle at /Users/paolo/Downloads/xctl-project/ has full API schemas
+
+## Environment Variables Required
+- None (credentials stored in ~/.x-cli/)
