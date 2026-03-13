@@ -1,0 +1,23 @@
+# Binaries
+x-cli
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Build
+/dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+credentials.json
