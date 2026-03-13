@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/chromedp/cdproto/network"
+	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 )
 
@@ -24,6 +25,9 @@ func BrowserLogin(ctx context.Context) (*Credentials, error) {
 		chromedp.Flag("disable-gpu", false),
 		chromedp.Flag("enable-automation", false),
 		chromedp.Flag("disable-extensions", false),
+		// Hide automation indicators from the browser
+		chromedp.Flag("disable-blink-features", "AutomationControlled"),
+		chromedp.UserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"),
 		chromedp.WindowSize(500, 700),
 	)
 
@@ -39,6 +43,17 @@ func BrowserLogin(ctx context.Context) (*Credentials, error) {
 	fmt.Println("Opening browser for X login...")
 	fmt.Println("Please log in to your X account. The window will close automatically.")
 
+	// Remove navigator.webdriver flag before any page loads
+	if err := chromedp.Run(timeoutCtx, chromedp.ActionFunc(func(ctx context.Context) error {
+		// Inject script to run on every new document (including after navigations/redirects)
+		_, err := page.AddScriptToEvaluateOnNewDocument(`
+			Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+		`).Do(ctx)
+		return err
+	})); err != nil {
+		return nil, fmt.Errorf("setup anti-detection: %w", err)
+	}
+
 	// Navigate to login page
 	if err := chromedp.Run(timeoutCtx,
 		chromedp.Navigate("https://x.com/i/flow/login"),
@@ -46,32 +61,67 @@ func BrowserLogin(ctx context.Context) (*Credentials, error) {
 		return nil, fmt.Errorf("navigate to login: %w", err)
 	}
 
-	// Poll until we detect successful login (URL changes to /home or auth cookies appear)
-	if err := chromedp.Run(timeoutCtx,
-		chromedp.Poll(`window.location.pathname === "/home" || document.cookie.includes("auth_token")`, nil,
-			chromedp.WithPollingInterval(500*time.Millisecond),
-			chromedp.WithPollingTimeout(loginTimeout),
-		),
-	); err != nil {
-		return nil, fmt.Errorf("waiting for login (timed out or browser closed): %w", err)
-	}
-
-	// Brief pause to let all cookies settle
-	if err := chromedp.Run(timeoutCtx, chromedp.Sleep(2*time.Second)); err != nil {
-		return nil, fmt.Errorf("post-login wait: %w", err)
-	}
-
-	// Extract cookies
+	// Poll for login completion using CDP cookies (not page JS).
+	// This avoids "execution context destroyed" errors during Google OAuth redirects,
+	// since network.GetCookies works at the browser/protocol level, not the page level.
 	var cookies []*network.Cookie
-	if err := chromedp.Run(timeoutCtx, chromedp.ActionFunc(func(ctx context.Context) error {
-		var err error
-		cookies, err = network.GetCookies().WithURLs([]string{"https://x.com"}).Do(ctx)
-		return err
-	})); err != nil {
-		return nil, fmt.Errorf("extract cookies: %w", err)
+	pollInterval := 2 * time.Second
+	deadline := time.Now().Add(loginTimeout)
+
+	for time.Now().Before(deadline) {
+		select {
+		case <-timeoutCtx.Done():
+			return nil, fmt.Errorf("login timed out or browser was closed")
+		default:
+		}
+
+		// Check cookies via CDP protocol — works regardless of page navigation state
+		err := chromedp.Run(timeoutCtx, chromedp.ActionFunc(func(ctx context.Context) error {
+			var err error
+			cookies, err = network.GetCookies().WithURLs([]string{"https://x.com"}).Do(ctx)
+			return err
+		}))
+		if err != nil {
+			// Browser might have been closed by user
+			if strings.Contains(err.Error(), "not found") ||
+				strings.Contains(err.Error(), "target closed") ||
+				strings.Contains(err.Error(), "connection reset") {
+				return nil, fmt.Errorf("browser was closed before login completed")
+			}
+			// Transient error (e.g., during navigation), keep polling
+			time.Sleep(pollInterval)
+			continue
+		}
+
+		// Check if auth cookies are present
+		hasAuth := false
+		hasCT0 := false
+		for _, c := range cookies {
+			if c.Name == "auth_token" {
+				hasAuth = true
+			}
+			if c.Name == "ct0" && c.Value != "" {
+				hasCT0 = true
+			}
+		}
+
+		if hasAuth && hasCT0 {
+			// Login successful — wait a moment for all cookies to settle
+			time.Sleep(2 * time.Second)
+
+			// Re-fetch cookies to get the final set
+			_ = chromedp.Run(timeoutCtx, chromedp.ActionFunc(func(ctx context.Context) error {
+				var err error
+				cookies, err = network.GetCookies().WithURLs([]string{"https://x.com"}).Do(ctx)
+				return err
+			}))
+			break
+		}
+
+		time.Sleep(pollInterval)
 	}
 
-	// Build credential from cookies
+	// Build credentials from cookies
 	creds := &Credentials{
 		BearerToken: defaultBearerToken,
 		CreatedAt:   time.Now(),
@@ -91,18 +141,19 @@ func BrowserLogin(ctx context.Context) (*Credentials, error) {
 	creds.Cookies = strings.Join(cookieParts, "; ")
 
 	if creds.CSRFToken == "" {
-		return nil, fmt.Errorf("login failed: no CSRF token (ct0 cookie) found")
+		return nil, fmt.Errorf("login failed: no CSRF token (ct0 cookie) found — did you complete login?")
 	}
 
-	// Try to extract screen name from the page
+	// Try to extract screen name from the page (best-effort, may fail after OAuth redirects)
 	var screenName string
 	_ = chromedp.Run(timeoutCtx,
-		chromedp.Evaluate(`document.querySelector('[data-testid="AppTabBar_Profile_Link"]')?.getAttribute("href")?.replace("/","")`, &screenName),
+		chromedp.Evaluate(`document.querySelector('[data-testid="AppTabBar_Profile_Link"]')?.getAttribute("href")?.replace("/","") || ""`, &screenName),
 	)
 	if screenName != "" {
 		creds.ScreenName = "@" + screenName
 	}
 
+	fmt.Println("Login successful! Closing browser...")
 	return creds, nil
 }
 
