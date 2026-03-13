@@ -18,6 +18,7 @@ const graphqlBaseURL = "https://x.com/i/api/graphql"
 type Client struct {
 	httpClient  *http.Client
 	credentials *auth.Credentials
+	LastRateLimit *RateLimit
 }
 
 // NewClient creates a new API client from stored credentials.
@@ -115,7 +116,13 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 		return nil, fmt.Errorf("read response: %w", err)
 	}
 
+	// Parse rate limit headers
+	c.LastRateLimit = ParseRateLimit(resp.Header)
+
 	if resp.StatusCode == 429 {
+		if c.LastRateLimit != nil {
+			return nil, fmt.Errorf("rate limited — resets at %s", c.LastRateLimit.Reset.Format("15:04:05"))
+		}
 		return nil, fmt.Errorf("rate limited — try again later")
 	}
 	if resp.StatusCode == 401 || resp.StatusCode == 403 {

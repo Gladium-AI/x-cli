@@ -6,12 +6,15 @@ import (
 	"strings"
 
 	"github.com/paolo/x-cli/internal/api"
+	"github.com/paolo/x-cli/internal/models"
 	"github.com/paolo/x-cli/internal/output"
 	"github.com/spf13/cobra"
 )
 
 var timelineCount int
 var timelineCursor string
+var timelineAll bool
+var timelineMaxPages int
 
 var timelineCmd = &cobra.Command{
 	Use:   "timeline",
@@ -25,6 +28,12 @@ var timelineHomeCmd = &cobra.Command{
 		client, err := api.NewClient()
 		if err != nil {
 			return err
+		}
+
+		if timelineAll {
+			return paginateTimeline(client, "x-cli timeline home", func(cursor string) (models.TimelinePage, []byte, error) {
+				return client.GetHomeTimeline(context.Background(), timelineCount, cursor)
+			})
 		}
 
 		page, rawJSON, err := client.GetHomeTimeline(context.Background(), timelineCount, timelineCursor)
@@ -51,10 +60,15 @@ var timelineUserCmd = &cobra.Command{
 			return err
 		}
 
-		// Resolve handle to user ID
 		userID, err := client.ResolveUserID(context.Background(), handle)
 		if err != nil {
 			return fmt.Errorf("resolve @%s: %w", handle, err)
+		}
+
+		if timelineAll {
+			return paginateTimeline(client, fmt.Sprintf("x-cli timeline user @%s", handle), func(cursor string) (models.TimelinePage, []byte, error) {
+				return client.GetUserTweets(context.Background(), userID, timelineCount, cursor)
+			})
 		}
 
 		page, rawJSON, err := client.GetUserTweets(context.Background(), userID, timelineCount, timelineCursor)
@@ -70,9 +84,48 @@ var timelineUserCmd = &cobra.Command{
 	},
 }
 
+type timelineFetcher func(cursor string) (models.TimelinePage, []byte, error)
+
+func paginateTimeline(client *api.Client, cmdName string, fetch timelineFetcher) error {
+	cursor := timelineCursor
+	totalTweets := 0
+
+	for page := 0; page < timelineMaxPages; page++ {
+		result, rawJSON, err := fetch(cursor)
+		if err != nil {
+			return err
+		}
+
+		if jsonOutput {
+			output.PrintTweets(nil, true, rawJSON)
+		} else {
+			output.PrintTweets(result.Tweets, false, nil)
+		}
+
+		totalTweets += len(result.Tweets)
+		cursor = result.NextCursor
+
+		if cursor == "" || len(result.Tweets) == 0 {
+			break
+		}
+
+		// Check rate limits between pages
+		if client.LastRateLimit != nil {
+			client.LastRateLimit.WaitIfNeeded()
+		}
+	}
+
+	if !jsonOutput {
+		fmt.Printf("\nFetched %d tweets across %d pages.\n", totalTweets, min(timelineMaxPages, totalTweets/timelineCount+1))
+	}
+	return nil
+}
+
 func init() {
-	timelineCmd.PersistentFlags().IntVar(&timelineCount, "count", 20, "Number of tweets to fetch")
+	timelineCmd.PersistentFlags().IntVar(&timelineCount, "count", 20, "Number of tweets per page")
 	timelineCmd.PersistentFlags().StringVar(&timelineCursor, "cursor", "", "Pagination cursor")
+	timelineCmd.PersistentFlags().BoolVar(&timelineAll, "all", false, "Auto-paginate through all results")
+	timelineCmd.PersistentFlags().IntVar(&timelineMaxPages, "max-pages", 10, "Max pages when using --all")
 
 	timelineCmd.AddCommand(timelineHomeCmd, timelineUserCmd)
 	rootCmd.AddCommand(timelineCmd)
