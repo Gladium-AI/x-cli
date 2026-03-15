@@ -42,7 +42,15 @@ var DefaultFeatures = map[string]bool{
 	"responsive_web_enhance_cards_enabled":                                 false,
 }
 
-// DefaultFieldToggles contains field toggle flags used by some endpoints.
+// DefaultFieldToggles contains field toggle flags required by X's GraphQL endpoints.
+// All 8 toggles are sent by the real web app for every operation.
 var DefaultFieldToggles = map[string]bool{
-	"withArticlePlainText": false,
+	"withPayments":                 false,
+	"withAuxiliaryUserLabels":      false,
+	"withArticleRichContentState":  false,
+	"withArticlePlainText":         false,
+	"withArticleSummaryText":       false,
+	"withArticleVoiceOver":         false,
+	"withGrokAnalyze":              false,
+	"withDisallowedReplyControls":  false,
 }

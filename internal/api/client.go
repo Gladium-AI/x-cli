@@ -14,11 +14,15 @@ import (
 
 const graphqlBaseURL = "https://x.com/i/api/graphql"
 
+// VerboseMode enables debug output for all API requests when set to true.
+var VerboseMode bool
+
 // Client handles authenticated requests to X's GraphQL API.
 type Client struct {
-	httpClient  *http.Client
-	credentials *auth.Credentials
+	httpClient    *http.Client
+	credentials   *auth.Credentials
 	LastRateLimit *RateLimit
+	Verbose       bool
 }
 
 // NewClient creates a new API client from stored credentials.
@@ -30,6 +34,7 @@ func NewClient() (*Client, error) {
 	return &Client{
 		httpClient:  &http.Client{},
 		credentials: creds,
+		Verbose:     VerboseMode,
 	}, nil
 }
 
@@ -105,6 +110,10 @@ func (c *Client) setHeaders(req *http.Request) {
 }
 
 func (c *Client) doRequest(req *http.Request) ([]byte, error) {
+	if c.Verbose {
+		fmt.Printf("[verbose] %s %s\n", req.Method, req.URL.String())
+	}
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
@@ -112,6 +121,12 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 	defer resp.Body.Close()
 
 	data, err := io.ReadAll(resp.Body)
+	if c.Verbose {
+		fmt.Printf("[verbose] HTTP %d — %d bytes\n", resp.StatusCode, len(data))
+		if resp.StatusCode >= 400 {
+			fmt.Printf("[verbose] response: %s\n", truncate(string(data), 500))
+		}
+	}
 	if err != nil {
 		return nil, fmt.Errorf("read response: %w", err)
 	}
