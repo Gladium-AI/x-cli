@@ -18,7 +18,7 @@ func (c *Client) GetHomeTimeline(ctx context.Context, count int, cursor string) 
 		vars["cursor"] = cursor
 	}
 
-	data, err := c.GraphQLGet(ctx, Endpoints["HomeTimeline"], vars)
+	data, err := c.GraphQL(ctx, Endpoints["HomeTimeline"], vars)
 	if err != nil {
 		return models.TimelinePage{}, nil, err
 	}
@@ -41,7 +41,7 @@ func (c *Client) GetUserTweets(ctx context.Context, userID string, count int, cu
 		vars["cursor"] = cursor
 	}
 
-	data, err := c.GraphQLGet(ctx, Endpoints["UserTweets"], vars)
+	data, err := c.GraphQL(ctx, Endpoints["UserTweets"], vars)
 	if err != nil {
 		return models.TimelinePage{}, nil, err
 	}

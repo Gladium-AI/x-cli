@@ -14,7 +14,7 @@ func (c *Client) GetUserByScreenName(ctx context.Context, screenName string) (mo
 		"withGrokTranslatedBio":  false,
 	}
 
-	data, err := c.GraphQLGet(ctx, Endpoints["UserByScreenName"], vars)
+	data, err := c.GraphQL(ctx, Endpoints["UserByScreenName"], vars)
 	if err != nil {
 		return models.User{}, nil, err
 	}

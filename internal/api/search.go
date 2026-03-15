@@ -28,7 +28,7 @@ func (c *Client) Search(ctx context.Context, query string, product string, count
 		vars["cursor"] = cursor
 	}
 
-	data, err := c.GraphQLGet(ctx, Endpoints["SearchTimeline"], vars)
+	data, err := c.GraphQL(ctx, Endpoints["SearchTimeline"], vars)
 	if err != nil {
 		return models.TimelinePage{}, nil, err
 	}

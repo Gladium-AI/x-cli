@@ -48,7 +48,7 @@ var Endpoints = map[string]EndpointDef{
 	"SearchTimeline": {
 		QueryID:         "oKkjeoNFNQN7IeK7AHYc0A",
 		OperationName:   "SearchTimeline",
-		Method:          "GET",
+		Method:          "POST",
 		HasFeatures:     true,
 		HasFieldToggles: true,
 	},
@@ -69,7 +69,7 @@ var Endpoints = map[string]EndpointDef{
 	"Followers": {
 		QueryID:         "xBB-_3k-LNxWg8TFpuQiWQ",
 		OperationName:   "Followers",
-		Method:          "GET",
+		Method:          "POST",
 		HasFeatures:     true,
 		HasFieldToggles: true,
 	},

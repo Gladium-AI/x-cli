@@ -28,7 +28,7 @@ func (c *Client) getSocialList(ctx context.Context, endpoint string, userID stri
 		vars["cursor"] = cursor
 	}
 
-	data, err := c.GraphQLGet(ctx, Endpoints[endpoint], vars)
+	data, err := c.GraphQL(ctx, Endpoints[endpoint], vars)
 	if err != nil {
 		return nil, "", nil, err
 	}

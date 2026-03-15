@@ -21,7 +21,7 @@ func (c *Client) GetTweetDetail(ctx context.Context, tweetID string) (*models.Tw
 		"withVoice":                              true,
 	}
 
-	data, err := c.GraphQLGet(ctx, Endpoints["TweetDetail"], vars)
+	data, err := c.GraphQL(ctx, Endpoints["TweetDetail"], vars)
 	if err != nil {
 		return nil, nil, err
 	}

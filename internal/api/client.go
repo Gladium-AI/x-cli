@@ -38,6 +38,14 @@ func NewClient() (*Client, error) {
 	}, nil
 }
 
+// GraphQL dispatches to GraphQLGet or GraphQLPost based on the endpoint's Method field.
+func (c *Client) GraphQL(ctx context.Context, endpoint EndpointDef, variables interface{}) ([]byte, error) {
+	if endpoint.Method == "POST" {
+		return c.GraphQLPost(ctx, endpoint, variables)
+	}
+	return c.GraphQLGet(ctx, endpoint, variables)
+}
+
 // GraphQLGet performs a GET request to a GraphQL endpoint with variables encoded as query params.
 func (c *Client) GraphQLGet(ctx context.Context, endpoint EndpointDef, variables interface{}) ([]byte, error) {
 	varsJSON, err := json.Marshal(variables)
@@ -124,7 +132,11 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 	if c.Verbose {
 		fmt.Printf("[verbose] HTTP %d — %d bytes\n", resp.StatusCode, len(data))
 		if resp.StatusCode >= 400 {
-			fmt.Printf("[verbose] response: %s\n", truncate(string(data), 500))
+			fmt.Printf("[verbose] response headers:\n")
+			for k, v := range resp.Header {
+				fmt.Printf("[verbose]   %s: %s\n", k, strings.Join(v, ", "))
+			}
+			fmt.Printf("[verbose] response body: %s\n", truncate(string(data), 500))
 		}
 	}
 	if err != nil {
