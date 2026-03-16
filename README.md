@@ -1,5 +1,8 @@
 # x-cli
 
+[![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A command-line tool for interacting with X (Twitter) via its internal GraphQL API.
 
 Fetch timelines, tweets, user profiles, search results, followers, and following lists directly from your terminal.
