@@ -47,9 +47,9 @@ var DefaultFeatures = map[string]bool{
 var DefaultFieldToggles = map[string]bool{
 	"withPayments":                 false,
 	"withAuxiliaryUserLabels":      false,
-	"withArticleRichContentState":  false,
-	"withArticlePlainText":         false,
-	"withArticleSummaryText":       false,
+	"withArticleRichContentState":  true,
+	"withArticlePlainText":         true,
+	"withArticleSummaryText":       true,
 	"withArticleVoiceOver":         false,
 	"withGrokAnalyze":              false,
 	"withDisallowedReplyControls":  false,
