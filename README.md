@@ -12,7 +12,7 @@ Fetch timelines, tweets, user profiles, search results, followers, and following
 **Prerequisites:** Go 1.25+ and Google Chrome (for browser-based login).
 
 ```bash
-git clone https://github.com/paolo/x-cli.git
+git clone https://github.com/Gladium-AI/x-cli.git
 cd x-cli
 make build
 sudo make install
@@ -23,6 +23,14 @@ This installs `x-cli` to `/usr/local/bin`. To uninstall:
 ```bash
 sudo make uninstall
 ```
+
+Install the Claude and Codex skill:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Gladium-AI/x-cli/main/install-skill.sh | sh
+```
+
+That installs the skill to `~/.claude/skills/x-cli` and `~/.codex/skills/x-cli` by default. Override the destination with `SKILLS_DIR=/path/to/skills`, or target each tool separately with `CLAUDE_SKILLS_DIR` and `CODEX_SKILLS_DIR`.
 
 ## Authentication
 
